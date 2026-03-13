@@ -1,3 +1,4 @@
+//Arnay Bhatia(A3R0H74) Grigor Zakaryan (A534K53)
 #include <iostream>
 #include "NeuralNetwork.hpp"
 #include "utility.hpp"

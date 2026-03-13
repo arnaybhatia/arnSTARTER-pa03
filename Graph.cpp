@@ -91,36 +91,57 @@ std::ostream& operator<<(std::ostream& out, const Connection& c) {
 
 // STUDENT TODO: IMPLEMENT
 void Graph::updateNode(int id, NodeInfo n) {
-    if (/* id is out of bounds — check if id is a valid index into nodes */ true) {
+    if (/* id is out of bounds — check if id is a valid index into nodes */ 
+        id < 0 || id >= size
+    ) {
         cout << "Attempting to update node with id: " << id << " but node does not exist" << endl;
         return;
     }
 
-    return; //stub
+    if(nodes[id] == nullptr){
+        NodeInfo* newNode = new NodeInfo(n);
+        nodes[id] = newNode;
+    } else {
+        *nodes[id] = n;
+    }
 }
 
 // STUDENT TODO: IMPLEMENT
 NodeInfo* Graph::getNode(int id) const {
-    return nullptr; //stub
+    if (id < 0 || id >= size) {
+        cerr << "Attempting to get node with id: " << id << " but node does not exist" << endl;
+        return nullptr;
+    }
+    return nodes[id];
 }
 
 // STUDENT TODO: IMPLEMENT
 void Graph::updateConnection(int v, int u, double w) {
-    if (/* v is out of bounds — check if v is a valid index into nodes */ true) {
+    if (/* v is out of bounds — check if v is a valid index into nodes */ 
+        v < 0 || v >= size
+    ) {
         cerr << "Attempting to update connection between " << v << " and " << u << " with weight " << w << " but " << v << " does not exist" << endl;
-        exit(1);
+        return;
     }
-    if (/* u is out of bounds — check if u is a valid index into nodes */ true) {
+    if (/* u is out of bounds — check if u is a valid index into nodes */ 
+        u < 0 || u >= size
+    ) {
         cerr << "Attempting to update connection between " << v << " and " << u << " with weight " << w << " but " << u << " does not exist" << endl;
-        exit(1);
+        return;
     }
 
-    return; //stub
+    adjacencyList[v][u] = Connection(v, u, w);
 }
 
 // STUDENT TODO: IMPLEMENT
 void Graph::clear() {
-    return; //stub
+    for (int i = 0; i < nodes.size(); i++) {
+        delete nodes[i];
+        nodes[i] = nullptr;
+    }
+    nodes.clear();
+    adjacencyList.clear();
+    size = 0;
 }
 
 

@@ -1,6 +1,7 @@
 // includes
 #include "NeuralNetwork.hpp"
 #include "Trace.hpp"
+#include <algorithm>
 using namespace std;
 
 
@@ -9,37 +10,37 @@ using namespace std;
 
 // STUDENT TODO: IMPLEMENT
 void NeuralNetwork::eval() {
-    //stub
+    evaluating=true;
 }
 
 // STUDENT TODO: IMPLEMENT
 void NeuralNetwork::train() {
-    //stub
+    evaluating=false;
 }
 
 // STUDENT TODO: IMPLEMENT
 void NeuralNetwork::setLearningRate(double lr) {
-    //stub
+    learningRate=lr;
 }
 
 // STUDENT TODO: IMPLEMENT
 void NeuralNetwork::setInputNodeIds(std::vector<int> inputNodeIds) {
-    //stub
+    this->inputNodeIds = inputNodeIds;
 }
 
 // STUDENT TODO: IMPLEMENT
 void NeuralNetwork::setOutputNodeIds(std::vector<int> outputNodeIds) {
-    //stub
+    this->outputNodeIds=outputNodeIds;
 }
 
 // STUDENT TODO: IMPLEMENT
 vector<int> NeuralNetwork::getInputNodeIds() const {
-    return vector<int>(); //stub
+    return inputNodeIds;
 }
 
 // STUDENT TODO: IMPLEMENT
 vector<int> NeuralNetwork::getOutputNodeIds() const {
-    return vector<int>(); //stub
+    return outputNodeIds;
 }
 
 // STUDENT TODO: IMPLEMENT
@@ -54,6 +55,10 @@ vector<double> NeuralNetwork::predict(DataInstance instance) {
         cerr << "\tBut got: " << input.size() << endl;
         return vector<double>();
     }
+    for (int i = 0; i < nodes.size(); i++) {
+        nodes.at(i)->preActivationValue = 0;
+        nodes.at(i)->postActivationValue = 0;
+    }
 
     // BFT implementation goes here.
     // Note: before traversal begins, each input value in `input` must be loaded into
@@ -61,6 +66,36 @@ vector<double> NeuralNetwork::predict(DataInstance instance) {
     // their value is passed forward directly.
     // Use visitPredictNode and visitPredictNeighbor to handle the neural network math
     // at each step of your traversal.
+    for (int i = 0; i < inputNodeIds.size(); i++) {
+        nodes[inputNodeIds[i]]->postActivationValue = input[i];
+    }
+
+    queue<int> q;
+    set<int> visited;
+
+    for (int id : inputNodeIds) {
+        q.push(id);
+        visited.insert(id);
+    }
+
+    while (!q.empty()) {
+        int id = q.front();
+        q.pop();
+        if (find(inputNodeIds.begin(), inputNodeIds.end(), id) == inputNodeIds.end()) {
+            visitPredictNode(id);
+        }
+
+        for (auto& pair : adjacencyList[id]) {
+            Connection& c = pair.second;
+            visitPredictNeighbor(c);
+
+            if (visited.find(c.dest) == visited.end()) {
+                q.push(c.dest);
+                visited.insert(c.dest);
+            }
+        }
+    }
+
 
     vector<double> output;
     for (int i = 0; i < outputNodeIds.size(); i++) {
@@ -89,10 +124,10 @@ bool NeuralNetwork::contribute(double y, double p) {
     // should not be called on them.
     // The contributions map acts as your "visited" set and also stores each node's
     // computed contribution so it is not recomputed if reached by multiple paths.
-
-
-    flush();
-
+    contributions.clear();
+    for (int i = 0; i < inputNodeIds.size(); i++) {
+        contribute(inputNodeIds[i], y, p);
+    }
     return true;
 }
 // STUDENT TODO: IMPLEMENT
@@ -103,8 +138,10 @@ double NeuralNetwork::contribute(int nodeId, const double& y, const double& p) {
     // outgoingContribution: built up from this node's neighbors, then scaled by
     // this node's activation derivative before being returned to the previous layer.
     double outgoingContribution = 0;
-    NodeInfo* currNode = nodes.at(nodeId);
 
+    if (contributions.find(nodeId) != contributions.end()) {
+        return contributions[nodeId];
+    }
     // If this node is already in the contributions map, return its stored value immediately.
 
     if (adjacencyList.at(nodeId).empty()) {
@@ -112,9 +149,20 @@ double NeuralNetwork::contribute(int nodeId, const double& y, const double& p) {
         // Seeds the backward pass with the initial error signal.
         // You do not need to understand this derivation.
         outgoingContribution = -1 * ((y - p) / (p * (1 - p)));
+    } else {
+        for (auto it = adjacencyList.at(nodeId).begin(); it != adjacencyList.at(nodeId).end(); ++it) {
+            Connection& con = it->second;
+            incomingContribution = contribute(con.dest, y, p);
+            visitContributeNeighbor(con, incomingContribution, outgoingContribution);
+        }
+    }
+
+    if (find(inputNodeIds.begin(), inputNodeIds.end(), nodeId) == inputNodeIds.end()) {
+        visitContributeNode(nodeId, outgoingContribution);
     }
 
     // Before returning, store outgoingContribution in the contributions map.
+    contributions[nodeId] = outgoingContribution;
 
     return outgoingContribution;
 }
@@ -131,6 +179,23 @@ bool NeuralNetwork::update() {
     // weight update: weight = weight - (learningRate * delta)
     // reset the delta term for each node and connection to zero.
     
+    if (batchSize == 0) {
+        return true;
+    }
+
+    for (int i = 0; i < nodes.size(); i++) {
+        nodes.at(i)->bias -= learningRate * nodes.at(i)->delta;
+        nodes.at(i)->delta = 0;
+    }
+
+    for (int i = 0; i < adjacencyList.size(); i++) {
+        for (auto it = adjacencyList.at(i).begin(); it != adjacencyList.at(i).end(); ++it) {
+            Connection& con = it->second;
+            con.weight -= learningRate * con.delta;
+            con.delta = 0;
+        }
+    }
+
     flush();
     return true;
     
